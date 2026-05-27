@@ -1,7 +1,7 @@
 {
   "id": "task-board",
   "name": "📋 Tasks",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
   "author": "reflex-org",
   "category": "productivity",

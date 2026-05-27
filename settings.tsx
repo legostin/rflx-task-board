@@ -67,6 +67,23 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
+  const [runningTick, setRunningTick] = useState(false);
+  const [tickResult, setTickResult] = useState<{
+    picked: string | null;
+    reason: string;
+  } | null>(null);
+
+  const runPickupNow = async () => {
+    setRunningTick(true);
+    try {
+      const res = (await reflex.actions.invoke({
+        name: "autoPickupTick",
+      })) as { picked: string | null; reason: string };
+      setTickResult(res);
+    } finally {
+      setRunningTick(false);
+    }
+  };
 
   // --- load settings ---
   useEffect(() => {
@@ -252,6 +269,28 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
               <code>{`{"taskId": ..., "reason": ...}`}</code>.
             </p>
           </div>
+
+          <div className="pt-2 border-t flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={runPickupNow}
+              disabled={runningTick}
+            >
+              {runningTick ? "Running…" : "Run pickup now"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              Manual fire — handy for testing your prompt. While the board
+              tab is open, Reflex also fires automatically every interval.
+            </p>
+          </div>
+          {tickResult && (
+            <p className="text-xs text-muted-foreground border-l-2 border-violet-300 pl-3">
+              {tickResult.picked
+                ? `Picked ${tickResult.picked}: ${tickResult.reason}`
+                : `No pick — ${tickResult.reason}`}
+            </p>
+          )}
         </CardContent>
       </Card>
 

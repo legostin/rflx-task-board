@@ -101,6 +101,39 @@ export default function TaskBoardApp() {
     return () => window.clearInterval(id);
   }, [refresh]);
 
+  // Auto-pickup driver while the board view is open. Reads the user's
+  // settings, ticks at the configured interval. Durable scheduling
+  // (continuing when the tab is closed) needs a `workflow.upsert` host
+  // method — tracked separately.
+  useEffect(() => {
+    let alive = true;
+    let timer: number | null = null;
+    const tick = async () => {
+      if (!alive) return;
+      try {
+        const settingsTxt = (await (reflex.fs as unknown as {
+          read: (a: { path: string }) => Promise<string | null>;
+        }).read({ path: "data/settings.json" }));
+        if (!settingsTxt) return;
+        const parsed = JSON.parse(settingsTxt) as {
+          enabled?: boolean;
+          intervalMinutes?: number;
+        };
+        if (!alive || !parsed.enabled) return;
+        await reflex.actions.invoke({ name: "autoPickupTick" });
+        const minutes = Math.max(5, Math.min(60, parsed.intervalMinutes ?? 15));
+        if (alive) timer = window.setTimeout(tick, minutes * 60_000);
+      } catch {
+        /* try again on next mount */
+      }
+    };
+    timer = window.setTimeout(tick, 60_000);
+    return () => {
+      alive = false;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
+
   const moveTask = useCallback(
     async (taskId: string, nextStatus: TaskStatus) => {
       const t = tasks.find((x) => x.id === taskId);
