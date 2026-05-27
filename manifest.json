@@ -1,0 +1,73 @@
+{
+  "id": "task-board",
+  "name": "📋 Tasks",
+  "version": "0.1.0",
+  "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
+  "author": "reflex-org",
+  "category": "productivity",
+  "ui": "ui.tsx",
+  "icon": "lucide:KanbanSquare",
+  "card": {
+    "kind": "kpi",
+    "title": "📋 Tasks",
+    "data": {
+      "items": [
+        { "label": "In progress", "value": "0" },
+        { "label": "Ready", "value": "0", "hint": "waiting for an agent" }
+      ]
+    }
+  },
+  "serverActions": [
+    { "name": "refreshCard", "entry": "actions/refreshCard.ts", "timeoutMs": 15000 },
+    { "name": "autoPickupTick", "entry": "actions/autoPickupTick.ts", "timeoutMs": 60000 },
+    { "name": "createFromChat", "entry": "actions/createFromChat.ts", "timeoutMs": 30000 }
+  ],
+  "permissions": {
+    "kb": {
+      "read": true,
+      "write": true,
+      "kinds": ["task"]
+    },
+    "fs": { "sandbox": true },
+    "audit": { "write": true },
+    "workers": { "enabled": true, "maxConcurrent": 2 },
+    "agent": { "invoke": true }
+  },
+  "extensions": {
+    "slashCommands": [
+      {
+        "id": "task",
+        "trigger": "task",
+        "label": "/task",
+        "description": "File a new task on the Kanban board.",
+        "icon": "CheckSquare",
+        "kind": "agent-mode",
+        "usage": "/task <title — what needs doing>",
+        "promptBlock": "## /task — file a card on the Kanban board\n\nThe user wants a new task on the board. Parse their message as the title (and possibly description after the first newline / dash). Default `type: \"feature\"` unless context says otherwise — bug if they mentioned 'fix' or 'broken', research if 'find out' / 'investigate', call if 'meeting' / 'звонок'.\n\nEmit ONE `<<reflex:task-create>>` marker, then a 1-line confirmation:\n\n```\n<<reflex:task-create>>{\"title\":\"<derived>\",\"body\":\"<context from message + any criteria>\",\"type\":\"feature|bug|research|...\",\"status\":\"backlog\",\"priority\":\"normal\"}<</reflex:task-create>>\n```\n\nDon't dispatch yet — just file. The user can drag it to `ready` and click Send to agent on the board.\n\nPayload: {payload}"
+      },
+      {
+        "id": "tasks",
+        "trigger": "tasks",
+        "label": "/tasks",
+        "description": "Show what's on the board right now.",
+        "icon": "ListChecks",
+        "kind": "agent-mode",
+        "allowEmpty": true,
+        "usage": "/tasks [filter]",
+        "promptBlock": "## /tasks — show board snapshot\n\nUse `reflex.kb.list({kind: \"task\"})` (or read the project's `.reflex/task/` directory) to gather every task. Summarise in a compact table grouped by column (Backlog / Ready / In-progress / Review / Done / Blocked), with `id`, `title`, `priority`. If the user passed a payload, filter tasks by case-insensitive substring in title or labels. Reply in {language}.\n\nDon't dispatch anything; this is a read-only snapshot. Suggest a next action only if it's clearly useful (\"3 ready tasks; want me to take the top one?\")."
+      },
+      {
+        "id": "take-task",
+        "trigger": "take-task",
+        "label": "/take-task",
+        "description": "Pick the next task from `ready` and dispatch it to an agent.",
+        "icon": "PlayCircle",
+        "kind": "agent-mode",
+        "allowEmpty": true,
+        "usage": "/take-task [task-id]",
+        "promptBlock": "## /take-task — dispatch the next task\n\nIf the payload is a task id, use that. Otherwise pick the highest-priority task in the `ready` column (ties broken by oldest `createdAt`). Skip anything currently `in-progress`.\n\nEmit `<<reflex:task-update>>{\"id\":\"<id>\",\"patch\":{\"status\":\"in-progress\"}}<</reflex:task-update>>` to flip status. Then tell the user one line: \"Picking task <id>: <title>. Opening worktree…\" — the task-board utility will detect the status flip and call `reflex.tasks.dispatch` to wire up the topic + worktree.\n\nReply in {language}."
+      }
+    ],
+    "systemPromptAddendum": "## Task tracker installed\n\nThis Space has the task-board utility installed. The agent can:\n\n- File a card via `<<reflex:task-create>>{title, body, type, status?, priority?, labels?}<</reflex:task-create>>`. Use freely whenever the user surfaces a piece of work bigger than this turn.\n- Update a card via `<<reflex:task-update>>{id, patch:{status?, body?, priority?}}<</reflex:task-update>>`. Especially when you're inside a topic dispatched FROM a task — flip to `status: \"done\"` once the work lands.\n- Types: `feature`, `bug`, `refactor`, `docs`, `chore`, `research`, `review`, `call`, `idea`. Statuses: `backlog`, `ready`, `in-progress`, `review`, `done`, `blocked`.\n- The user can drag cards across columns on the board UI. Tasks that touch code get an isolated git worktree on dispatch — agents working in parallel never collide on files."
+  }
+}
