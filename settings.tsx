@@ -280,8 +280,10 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
               {runningTick ? "Running…" : "Run pickup now"}
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              Manual fire — handy for testing your prompt. While the board
-              tab is open, Reflex also fires automatically every interval.
+              Manual fire — handy for testing your prompt. The Reflex
+              background scheduler also runs the
+              <code className="font-mono mx-1">task-board-auto-pickup</code>
+              workflow hourly while Reflex is up.
             </p>
           </div>
           {tickResult && (

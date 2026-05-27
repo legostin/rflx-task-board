@@ -1,7 +1,7 @@
 {
   "id": "task-board",
   "name": "📋 Tasks",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
   "author": "reflex-org",
   "category": "productivity",
@@ -66,6 +66,27 @@
         "allowEmpty": true,
         "usage": "/take-task [task-id]",
         "promptBlock": "## /take-task — dispatch the next task\n\nIf the payload is a task id, use that. Otherwise pick the highest-priority task in the `ready` column (ties broken by oldest `createdAt`). Skip anything currently `in-progress`.\n\nEmit `<<reflex:task-update>>{\"id\":\"<id>\",\"patch\":{\"status\":\"in-progress\"}}<</reflex:task-update>>` to flip status. Then tell the user one line: \"Picking task <id>: <title>. Opening worktree…\" — the task-board utility will detect the status flip and call `reflex.tasks.dispatch` to wire up the topic + worktree.\n\nReply in {language}."
+      }
+    ],
+    "workflows": [
+      {
+        "id": "task-board-auto-pickup",
+        "label": "Task board · auto-pickup",
+        "description": "Scans the `ready` column and dispatches the next task to an agent. Settings → Tasks → Enable auto-pickup to activate.",
+        "trigger": "hourly",
+        "steps": [
+          {
+            "id": "tick",
+            "kind": "utility-call",
+            "label": "Run autoPickupTick",
+            "params": {
+              "utilityId": "task-board",
+              "utilityScope": "project",
+              "actionName": "autoPickupTick",
+              "args": {}
+            }
+          }
+        ]
       }
     ],
     "systemPromptAddendum": "## Task tracker installed\n\nThis Space has the task-board utility installed. The agent can:\n\n- File a card via `<<reflex:task-create>>{title, body, type, status?, priority?, labels?}<</reflex:task-create>>`. Use freely whenever the user surfaces a piece of work bigger than this turn.\n- Update a card via `<<reflex:task-update>>{id, patch:{status?, body?, priority?}}<</reflex:task-update>>`. Especially when you're inside a topic dispatched FROM a task — flip to `status: \"done\"` once the work lands.\n- Types: `feature`, `bug`, `refactor`, `docs`, `chore`, `research`, `review`, `call`, `idea`. Statuses: `backlog`, `ready`, `in-progress`, `review`, `done`, `blocked`.\n- The user can drag cards across columns on the board UI. Tasks that touch code get an isolated git worktree on dispatch — agents working in parallel never collide on files."
