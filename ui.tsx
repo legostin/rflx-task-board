@@ -11,6 +11,7 @@ import {
   Textarea,
 } from "@host/ui";
 import { TaskDetailPanel } from "./task-detail";
+import { SettingsView } from "./settings";
 import type { Task, TaskStatus, TaskType, TaskPriority } from "./actions/_types";
 import {
   TASK_STATUSES,
@@ -38,7 +39,8 @@ const COLUMNS: { id: TaskStatus; title: string }[] = [
 type View =
   | { name: "board" }
   | { name: "detail"; taskId: string }
-  | { name: "create" };
+  | { name: "create" }
+  | { name: "settings" };
 
 const tasksApi = reflex.tasks as unknown as {
   list: () => Promise<{ tasks: Task[] }>;
@@ -139,6 +141,10 @@ export default function TaskBoardApp() {
     );
   }
 
+  if (view.name === "settings") {
+    return <SettingsView onClose={() => setView({ name: "board" })} />;
+  }
+
   return (
     <div className="p-4 space-y-4 min-h-screen">
       <div className="flex items-baseline justify-between gap-2">
@@ -146,6 +152,13 @@ export default function TaskBoardApp() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => void refresh()}>
             Refresh
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setView({ name: "settings" })}
+          >
+            ⚙ Settings
           </Button>
           <Button onClick={() => setView({ name: "create" })}>+ New task</Button>
         </div>

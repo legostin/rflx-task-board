@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { reflex } from "@host/api";
 import {
   Badge,
   Button,
@@ -11,9 +12,9 @@ import {
 } from "@host/ui";
 import type {
   Task,
+  TaskHookRef,
   TaskPriority,
   TaskStatus,
-  TaskType,
 } from "./actions/_types";
 import { TASK_STATUSES, TASK_PRIORITIES, TYPE_DEFAULTS } from "./actions/_types";
 
@@ -316,6 +317,11 @@ export function TaskDetailPanel({
         </CardContent>
       </Card>
 
+      <HooksEditor
+        task={task}
+        onUpdate={(patch) => void updateField(patch)}
+      />
+
       {task.status === "in-progress" && task.topicId && (
         <Card>
           <CardHeader>
@@ -340,6 +346,225 @@ export function TaskDetailPanel({
             </p>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+interface WorkflowSummary {
+  id: string;
+  label: string;
+  description?: string;
+  trigger?: string;
+  stepCount?: number;
+}
+
+const workflowApi = reflex.workflow as unknown as {
+  list: () => Promise<WorkflowSummary[]>;
+};
+
+function HooksEditor({
+  task,
+  onUpdate,
+}: {
+  task: Task;
+  onUpdate: (patch: Partial<Task>) => void;
+}) {
+  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const wfs = await workflowApi.list().catch(() => []);
+      if (alive) setWorkflows(wfs);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Lifecycle hooks</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Run a workflow (or inject a chat prompt) before the agent starts the
+          task, or after they finish. E.g. "regenerate API docs" as a{" "}
+          <code>post</code> workflow, or "draft an agenda" as a <code>pre</code>{" "}
+          chat prompt for a meeting.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <HookGroup
+          label="Before agent starts (pre)"
+          hooks={task.pre}
+          workflows={workflows}
+          onChange={(next) => onUpdate({ pre: next })}
+        />
+        <HookGroup
+          label="After agent finishes (post)"
+          hooks={task.post}
+          workflows={workflows}
+          onChange={(next) => onUpdate({ post: next })}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function HookGroup({
+  label,
+  hooks,
+  workflows,
+  onChange,
+}: {
+  label: string;
+  hooks: TaskHookRef[];
+  workflows: WorkflowSummary[];
+  onChange: (next: TaskHookRef[]) => void;
+}) {
+  const [picker, setPicker] = useState<"workflow" | "chat" | null>(null);
+  const [chatDraft, setChatDraft] = useState("");
+  const [wfChoice, setWfChoice] = useState<string>("");
+
+  const add = (hook: TaskHookRef) => onChange([...hooks, hook]);
+  const removeAt = (i: number) =>
+    onChange(hooks.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPicker("workflow");
+              setWfChoice(workflows[0]?.id ?? "");
+            }}
+          >
+            + Workflow
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPicker("chat")}
+          >
+            + Chat prompt
+          </Button>
+        </div>
+      </div>
+
+      {hooks.length === 0 && picker === null && (
+        <p className="text-[11px] text-muted-foreground italic">
+          No hooks set.
+        </p>
+      )}
+
+      <div className="space-y-1">
+        {hooks.map((h, i) => (
+          <div
+            key={`${h.kind}:${i}`}
+            className="flex items-start gap-2 p-2 border rounded-md bg-muted/30"
+          >
+            <Badge variant="outline" className="text-[9px] mt-0.5">
+              {h.kind}
+            </Badge>
+            <div className="flex-1 min-w-0 text-xs">
+              {h.kind === "workflow"
+                ? `Run workflow: ${h.id}`
+                : h.prompt}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeAt(i)}
+              className="h-6 px-2 text-destructive"
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {picker === "workflow" && (
+        <div className="flex items-center gap-2 p-2 border rounded-md">
+          {workflows.length === 0 ? (
+            <span className="text-xs text-muted-foreground italic">
+              No workflows in this project yet — create one first (
+              <code>/workflow</code>).
+            </span>
+          ) : (
+            <>
+              <select
+                value={wfChoice}
+                onChange={(e) => setWfChoice(e.target.value)}
+                className="flex-1 border rounded-md px-2 py-1 text-xs bg-background"
+              >
+                {workflows.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.label} ({w.id})
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (wfChoice) add({ kind: "workflow", id: wfChoice });
+                  setPicker(null);
+                }}
+              >
+                Add
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPicker(null)}
+            className="text-muted-foreground"
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      {picker === "chat" && (
+        <div className="space-y-2 p-2 border rounded-md">
+          <Textarea
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            placeholder="Markdown prepended to the agent's first message. E.g. 'Draft an agenda for tomorrow's meeting based on these talking points: …'"
+            rows={4}
+            className="text-xs"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setPicker(null);
+                setChatDraft("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                const t = chatDraft.trim();
+                if (t) add({ kind: "chat", prompt: t });
+                setChatDraft("");
+                setPicker(null);
+              }}
+              disabled={!chatDraft.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
