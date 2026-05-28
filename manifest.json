@@ -1,28 +1,28 @@
 {
   "id": "task-board",
   "name": "📋 Tasks",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
   "author": "reflex-org",
   "category": "productivity",
   "ui": "ui.tsx",
   "icon": "lucide:KanbanSquare",
   "card": {
-    "kind": "kpi",
+    "kind": "action-list",
     "title": "📋 Tasks",
     "action": "refreshCard",
     "refresh": "hourly",
     "data": {
-      "items": [
-        { "label": "Backlog", "value": "—" },
-        { "label": "Ready", "value": "—" },
-        { "label": "In progress", "value": "—" },
-        { "label": "Done", "value": "—" }
+      "groups": [
+        { "label": "Backlog", "emptyText": "…", "items": [] },
+        { "label": "In progress", "emptyText": "…", "items": [] },
+        { "label": "Last completed", "emptyText": "…", "items": [] }
       ]
     }
   },
   "serverActions": [
     { "name": "refreshCard", "entry": "actions/refreshCard.ts", "timeoutMs": 15000 },
+    { "name": "dispatchFromCard", "entry": "actions/dispatchFromCard.ts", "timeoutMs": 60000 },
     { "name": "autoPickupTick", "entry": "actions/autoPickupTick.ts", "timeoutMs": 60000 },
     { "name": "createFromChat", "entry": "actions/createFromChat.ts", "timeoutMs": 30000 }
   ],
