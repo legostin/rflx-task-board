@@ -27,9 +27,12 @@ import {
  * bound topic when a card is in-progress.
  */
 
+// Display titles only — the `id` is the persisted status. "ready" shows
+// as "To do" because "Ready" reads as "done/finished" to many people;
+// the status it represents is "triaged, ready to start".
 const COLUMNS: { id: TaskStatus; title: string }[] = [
   { id: "backlog", title: "Backlog" },
-  { id: "ready", title: "Ready" },
+  { id: "ready", title: "To do" },
   { id: "in-progress", title: "In progress" },
   { id: "review", title: "Review" },
   { id: "done", title: "Done" },
