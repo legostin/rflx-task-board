@@ -3,12 +3,16 @@ import type { Task } from "./_types";
 
 /**
  * Auto-pickup tick. Reads the user's `task-board-auto-pickup` settings
- * from secrets storage, applies the LLM-evaluated pickup prompt against
- * the `ready` column, and dispatches one task at a time.
+ * from sandboxed FS, applies the LLM-evaluated pickup prompt against the
+ * available work (backlog + ready), and dispatches one task at a time.
  *
- * Designed to be wired into a Reflex workflow on a schedule
- * (every N minutes). Currently the utility's settings UI registers
- * the workflow when the toggle is on.
+ * Candidate columns are `backlog` + `ready`: most users drop work in
+ * backlog and never bother moving it to ready, so ready-only pickup
+ * looked broken ("I have a backlog task but it says nothing"). Ready is
+ * still preferred over backlog within the prompt.
+ *
+ * Designed to be wired into a Reflex workflow on a schedule. The
+ * utility's settings UI registers the workflow when the toggle is on.
  */
 
 interface PickupSettings {
@@ -19,10 +23,10 @@ interface PickupSettings {
 const DEFAULT_PROMPT = `You are deciding which task an agent should pick up next.
 
 Inputs you'll see:
-  - READY: array of tasks waiting to be worked on
+  - AVAILABLE: tasks waiting to be worked on (status "ready" or "backlog"; prefer "ready")
   - IN_PROGRESS: tasks already being worked on
 
-Pick ONE task (or none). Priorities: high > normal > low. Within a tier, the oldest createdAt wins. Skip tasks whose code areas obviously overlap with something IN_PROGRESS.
+Pick ONE task (or none). Prefer "ready" over "backlog"; then priority high > normal > low; within a tier, the oldest createdAt wins. Skip tasks whose code areas obviously overlap with something IN_PROGRESS.
 
 Reply with strict JSON: {"taskId": "<id-or-null>", "reason": "<one-line why>"}.`;
 
@@ -54,21 +58,27 @@ export default async function autoPickupTick(): Promise<{
   }
 
   const { tasks } = await tasksApi.list();
-  const ready = tasks.filter((t) => t.status === "ready");
+  // Candidates: ready first, then backlog — both are "available, not
+  // started" work. Ordering here also hints the LLM's preference.
+  const available = [
+    ...tasks.filter((t) => t.status === "ready"),
+    ...tasks.filter((t) => t.status === "backlog"),
+  ];
   const inProgress = tasks.filter((t) => t.status === "in-progress");
-  if (ready.length === 0) {
-    return { picked: null, reason: "no ready tasks" };
+  if (available.length === 0) {
+    return { picked: null, reason: "no available tasks (backlog/ready empty)" };
   }
 
   const llmPrompt = [
     settings.prompt.trim() || DEFAULT_PROMPT,
     "",
-    "## READY",
+    "## AVAILABLE",
     JSON.stringify(
-      ready.map((t) => ({
+      available.map((t) => ({
         id: t.id,
         title: t.title,
         type: t.type,
+        status: t.status,
         priority: t.priority,
         labels: t.labels,
         createdAt: t.createdAt,
@@ -103,6 +113,10 @@ export default async function autoPickupTick(): Promise<{
   }
   if (!decision.taskId) {
     return { picked: null, reason: decision.reason ?? "no candidate" };
+  }
+  // Guard against a hallucinated id — only dispatch a real candidate.
+  if (!available.some((t) => t.id === decision.taskId)) {
+    return { picked: null, reason: `picked unknown id ${decision.taskId}` };
   }
   const dispatched = await tasksApi.dispatch({ id: decision.taskId });
   if (!dispatched.ok) {

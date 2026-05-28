@@ -1,7 +1,7 @@
 {
   "id": "task-board",
   "name": "📋 Tasks",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
   "author": "reflex-org",
   "category": "productivity",
@@ -14,28 +14,67 @@
     "refresh": "hourly",
     "data": {
       "groups": [
-        { "label": "Backlog", "emptyText": "…", "items": [] },
-        { "label": "In progress", "emptyText": "…", "items": [] },
-        { "label": "Last completed", "emptyText": "…", "items": [] }
+        {
+          "label": "Backlog",
+          "emptyText": "…",
+          "items": []
+        },
+        {
+          "label": "In progress",
+          "emptyText": "…",
+          "items": []
+        },
+        {
+          "label": "Last completed",
+          "emptyText": "…",
+          "items": []
+        }
       ]
     }
   },
   "serverActions": [
-    { "name": "refreshCard", "entry": "actions/refreshCard.ts", "timeoutMs": 15000 },
-    { "name": "dispatchFromCard", "entry": "actions/dispatchFromCard.ts", "timeoutMs": 60000 },
-    { "name": "autoPickupTick", "entry": "actions/autoPickupTick.ts", "timeoutMs": 60000 },
-    { "name": "createFromChat", "entry": "actions/createFromChat.ts", "timeoutMs": 30000 }
+    {
+      "name": "refreshCard",
+      "entry": "actions/refreshCard.ts",
+      "timeoutMs": 15000
+    },
+    {
+      "name": "dispatchFromCard",
+      "entry": "actions/dispatchFromCard.ts",
+      "timeoutMs": 60000
+    },
+    {
+      "name": "autoPickupTick",
+      "entry": "actions/autoPickupTick.ts",
+      "timeoutMs": 60000
+    },
+    {
+      "name": "createFromChat",
+      "entry": "actions/createFromChat.ts",
+      "timeoutMs": 30000
+    }
   ],
   "permissions": {
     "kb": {
       "read": true,
       "write": true,
-      "kinds": ["task"]
+      "kinds": [
+        "task"
+      ]
     },
-    "fs": { "sandbox": true },
-    "audit": { "write": true },
-    "workers": { "enabled": true, "maxConcurrent": 2 },
-    "agent": { "invoke": true }
+    "fs": {
+      "sandbox": true
+    },
+    "audit": {
+      "write": true
+    },
+    "workers": {
+      "enabled": true,
+      "maxConcurrent": 2
+    },
+    "agent": {
+      "invoke": true
+    }
   },
   "extensions": {
     "slashCommands": [
@@ -76,7 +115,7 @@
       {
         "id": "task-board-auto-pickup",
         "label": "Task board · auto-pickup",
-        "description": "Scans the `ready` column and dispatches the next task to an agent. Settings → Tasks → Enable auto-pickup to activate.",
+        "description": "Scans available tasks (ready + backlog) and dispatches the next one to an agent. Settings → Tasks → Enable auto-pickup to activate.",
         "trigger": "hourly",
         "steps": [
           {
