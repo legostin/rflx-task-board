@@ -1,7 +1,7 @@
 {
   "id": "task-board",
   "name": "📋 Tasks",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Built-in Kanban tracker. Attach screenshots, link tasks, dispatch to agents inside git worktrees, set pre/post hooks.",
   "author": "reflex-org",
   "category": "productivity",
@@ -10,10 +10,14 @@
   "card": {
     "kind": "kpi",
     "title": "📋 Tasks",
+    "action": "refreshCard",
+    "refresh": "hourly",
     "data": {
       "items": [
-        { "label": "In progress", "value": "0" },
-        { "label": "Ready", "value": "0", "hint": "waiting for an agent" }
+        { "label": "Backlog", "value": "—" },
+        { "label": "Ready", "value": "—" },
+        { "label": "In progress", "value": "—" },
+        { "label": "Done", "value": "—" }
       ]
     }
   },
